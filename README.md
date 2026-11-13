@@ -20,6 +20,7 @@ local SQLite database.
 - [Test coverage](#test-coverage)
 - [Design decisions](#design-decisions)
 - [Limitations and roadmap](#limitations-and-roadmap)
+- [AI workflow note](AI_WORKFLOW.md): how this project was built with an AI coding agent
 
 ---
 
@@ -389,6 +390,7 @@ with other users by email.
 │   └── reset.js               Deletes the local database
 ├── tests/api.test.js          API test suite
 ├── ARCHITECTURE.md            Architecture note
+├── AI_WORKFLOW.md             AI workflow note
 ├── samples/                   Example .docx, .md, and .txt files
 └── docs/screenshots/          Images used in this README
 ```
