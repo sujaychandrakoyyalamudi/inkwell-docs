@@ -15,7 +15,7 @@ local SQLite database.
 - [Features](#features)
 - [Walkthrough](#walkthrough)
 - [Feature details](#feature-details)
-- [Architecture](#architecture)
+- [Architecture](#architecture) (full write-up in [ARCHITECTURE.md](ARCHITECTURE.md))
 - [API reference](#api-reference)
 - [Test coverage](#test-coverage)
 - [Design decisions](#design-decisions)
@@ -351,6 +351,9 @@ with other users by email.
 
 ## Architecture
 
+> The design rationale, request flows, security model, and trade-offs are in the
+> [architecture note](ARCHITECTURE.md). This section is a quick reference.
+
 ### Tech stack
 
 | Layer | Technology |
@@ -385,6 +388,7 @@ with other users by email.
 │   ├── convert.js             File-to-HTML conversion and the HTML sanitizer
 │   └── reset.js               Deletes the local database
 ├── tests/api.test.js          API test suite
+├── ARCHITECTURE.md            Architecture note
 ├── samples/                   Example .docx, .md, and .txt files
 └── docs/screenshots/          Images used in this README
 ```
