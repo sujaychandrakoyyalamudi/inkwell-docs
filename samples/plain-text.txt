@@ -1,0 +1,7 @@
+Grocery list for the team offsite
+
+Plain-text files become one paragraph per block of text.
+Single line breaks inside a block are kept as line breaks.
+
+Coffee, tea, oat milk
+Fruit and snacks
