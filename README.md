@@ -21,6 +21,7 @@ local SQLite database.
 - [Design decisions](#design-decisions)
 - [Limitations and roadmap](#limitations-and-roadmap)
 - [AI workflow note](AI_WORKFLOW.md): how this project was built with an AI coding agent
+- [Submission summary](SUBMISSION.md): what is included and where each requirement is implemented
 
 ---
 
@@ -391,6 +392,7 @@ with other users by email.
 ├── tests/api.test.js          API test suite
 ├── ARCHITECTURE.md            Architecture note
 ├── AI_WORKFLOW.md             AI workflow note
+├── SUBMISSION.md              Submission summary and file manifest
 ├── samples/                   Example .docx, .md, and .txt files
 └── docs/screenshots/          Images used in this README
 ```
