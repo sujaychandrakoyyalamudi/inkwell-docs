@@ -1,169 +1,272 @@
-# Inkwell — a small collaborative document editor
+# Inkwell
 
-A full-stack document editor: create and edit rich-text documents in the browser, import files, share
-documents with other users as editors or viewers, and keep everything in SQLite.
+A lightweight collaborative document editor. You can write and format documents in the browser, import
+existing files, and share documents with other users as editors or viewers. Everything is stored in
+SQLite.
 
-**Stack:** React 19 + [TipTap 3](https://tiptap.dev) (ProseMirror) on Vite · Node + Express 5 ·
-SQLite through Node's built-in `node:sqlite`. No native modules, no external services.
+![Inkwell editor](docs/screenshots/editor.png)
+
+## Table of contents
+
+- [Features](#features)
+- [Getting started](#getting-started)
+- [Walkthrough](#walkthrough)
+- [Feature details](#feature-details)
+- [Architecture](#architecture)
+- [API reference](#api-reference)
+- [Testing](#testing)
+- [Configuration](#configuration)
+- [Design decisions](#design-decisions)
+- [Limitations and roadmap](#limitations-and-roadmap)
 
 ---
 
-## Quick start
+## Features
 
-Requires **Node.js 22.13 or newer** (built-in `node:sqlite`). Tested on Node 26.
+- **Rich-text editing.** Headings, bold, italic, underline, strikethrough, bulleted and numbered lists,
+  block quotes, alignment, and undo/redo, from the toolbar or with keyboard shortcuts.
+- **Autosave.** Changes save a moment after you stop typing, and a status indicator shows when they are
+  saved.
+- **File import.** A `.docx`, `.md`, or `.txt` file can become a new document, or its content can be
+  inserted into an existing draft.
+- **Sharing.** The owner of a document grants **Editor** or **Viewer** access. The dashboard keeps
+  *Owned by me* and *Shared with me* separate.
+- **Safe concurrent editing.** If two people save over each other, the second save is refused instead of
+  silently overwriting the first. Collaborators' changes appear in open documents automatically.
+- **Persistence.** Documents, formatting, and sharing are stored in SQLite and survive refreshes and
+  server restarts.
+
+## Getting started
+
+### Prerequisites
+
+- **Node.js 22.13 or later.** Inkwell uses Node's built-in `node:sqlite` module, so there are no native
+  dependencies to compile.
+- npm
+
+### Install and run
 
 ```bash
+git clone https://github.com/sujaychandrakoyyalamudi/inkwell-docs.git
+cd inkwell-docs
 npm install
 npm run dev
 ```
 
-Open **http://localhost:5173**. The API runs on port 3001 and Vite proxies `/api` to it.
+Open **http://localhost:5173**.
 
-On first start the server creates `data/inkwell.db` and seeds three demo users and two shared documents.
-Pick an account on the sign-in screen; there is no password.
+On first start, the server creates `data/inkwell.db` and seeds it with demo accounts and documents.
 
-| Command | What it does |
-| --- | --- |
-| `npm run dev` | API (auto-restarts on server changes) + Vite dev server with hot reload |
-| `npm test` | API test suite (`node:test` + supertest, in-memory DB) |
-| `npm run build && npm start` | Production build; one Node process serves the app and API on `PORT` (default 3001) |
-| `npm run seed:reset` | Delete the local database so the next start re-seeds demo data (stop the server first) |
+### Demo accounts
 
-## Try the sharing flow (2 minutes)
+Sign-in is mocked: choose an account on the sign-in screen, with no password. To switch users, open the
+avatar menu in the top-right corner.
 
-1. Sign in as **Alice**. *Owned by me* lists "Welcome to Inkwell" (shared with Bob as an editor).
-   *Shared with me* lists Bob's "Q3 planning notes" marked **View only**.
-2. Open "Welcome to Inkwell", edit some text, and rename it by clicking the title. The status next to the
-   title goes from *Unsaved changes* to *Saving…* to *Saved*. Refresh the page and the changes are still there.
-3. Click **Share**, pick **Carol**, choose **Viewer**, then click **Share**.
-4. From the avatar menu (top right), **switch to Carol**. You stay on the same document. It is now
-   read-only: no toolbar, a view-only banner, and it appears under *Shared with me* on her dashboard.
-5. Switch to **Bob** (an editor) and make a change. Switch back to Carol and the change is there. An open
-   tab also picks up collaborators' saves within about 4 seconds.
-6. Back as Alice, open **Share** again to change Bob's role or remove someone. Removed users get a
-   "Document unavailable" page if they open the link.
-
-## Features
-
-### Document creation and editing
-- Create, rename (click the title), edit, delete (owner only), and reopen documents.
-- Toolbar and keyboard shortcuts for **bold**, *italic*, <u>underline</u>, strikethrough,
-  Normal text / Heading 1–3, bulleted and numbered lists, block quotes, horizontal lines, text
-  alignment, clear formatting, and undo/redo.
-- **Autosave** runs 0.8 s after you stop typing, and also when the title field loses focus and on ⌘/Ctrl+S.
-  A status indicator shows the save state. Unsaved changes are flushed before you navigate away, and the
-  browser warns before you close a tab with a save still pending.
-
-### File upload
-Supported types: **`.txt`, `.md` / `.markdown`, `.docx`. Max 5 MB.** The UI lists these next to every
-upload control. The server enforces them and rejects anything else with a clear message.
-
-- **Import as a new document.** Click **Import file** on the dashboard, or drag a file onto the page. The
-  file becomes a new editable document named after the file, and the dashboard shows the source filename
-  as a chip.
-- **Insert into an existing draft.** **Insert file** in the editor toolbar puts the converted content at
-  the cursor.
-
-How files are converted:
-
-| Type | Converter | What is kept |
+| Account | Email | Seeded content |
 | --- | --- | --- |
-| `.docx` | [mammoth](https://github.com/mwilliamson/mammoth.js) | Headings, bold, italic, underline, strikethrough, bulleted and numbered lists, links |
-| `.md` | [marked](https://marked.js.org) (GFM) | Headings, emphasis, lists, quotes, code, links |
-| `.txt` | built in | A blank line starts a new paragraph; single line breaks are kept |
+| Alice Chen | `alice@example.com` | Owns *Welcome to Inkwell*, shared with Bob as an editor |
+| Bob Martinez | `bob@example.com` | Owns *Q3 planning notes*, shared with Alice as a viewer |
+| Carol Singh | `carol@example.com` | No documents. Use this account to test sharing |
 
-Images, tables, comments, and fonts are not imported. Table cells come through as plain text. Legacy
-`.doc`, PDF, and other formats are rejected.
+### Scripts
 
-### Sharing
-- Every document has one **owner**: the user who created or imported it.
-- The owner shares by email with a role:
-  - **Editor**: can read, edit, and rename.
-  - **Viewer**: read-only. The editor is not editable and the toolbar is hidden.
-- The owner can change roles or revoke access at any time. Collaborators can see who has access and can
-  remove themselves (**Leave**). Only the owner can delete the document or manage access.
-- The dashboard splits documents into **Owned by me** and **Shared with me**. Each row shows a role badge,
-  the owner, and how many people the document is shared with.
-- The server enforces all of this; the UI only reflects it. A user with no access gets **404** (not 403),
-  so the API does not reveal whether a document exists.
+| Command | Description |
+| --- | --- |
+| `npm run dev` | Starts the API on port 3001 and the Vite dev server on port 5173, both reloading on changes |
+| `npm test` | Runs the API test suite against an in-memory database |
+| `npm run build` | Builds the client into `dist/` |
+| `npm start` | Runs the production server, which serves both the app and the API on `PORT` (default 3001) |
+| `npm run seed:reset` | Deletes the local database so the next start re-seeds demo data. Stop the server first |
+
+## Walkthrough
+
+This takes about two minutes and covers each core feature.
+
+1. **Sign in as Alice.** Her dashboard lists the documents she owns separately from those shared with
+   her. Each row shows a role badge.
+
+   ![Dashboard](docs/screenshots/dashboard.png)
+
+2. **Edit a document.** Open *Welcome to Inkwell*, format some text, and click the title to rename it.
+   The status under the title changes from *Unsaved changes* to *Saving…* to *Saved*. Refresh the page,
+   and your changes are still there.
+
+3. **Share it.** Click **Share**, add Carol as a **Viewer**, and click **Share** again. In the same
+   dialog you can change roles or remove access.
+
+   ![Share dialog](docs/screenshots/share-dialog.png)
+
+4. **Check the viewer's experience.** Switch to Carol from the avatar menu. The document is now
+   read-only: the toolbar is hidden and a banner explains the access level.
+
+   ![View-only access](docs/screenshots/view-only.png)
+
+5. **Collaborate.** Switch to Bob, who is an editor, and make a change. Switch back to Carol and the
+   change is there. A document that is already open picks up collaborators' saves within a few seconds.
+
+6. **Import a file.** On the dashboard, click **Import file**, or drag a file onto the page. Sample
+   files are in [`samples/`](samples).
+
+## Feature details
+
+### Editing
+
+| Action | Toolbar | Shortcut (macOS / Windows) |
+| --- | --- | --- |
+| Bold, italic, underline | **B** *I* <u>U</u> | ⌘B, ⌘I, ⌘U / Ctrl+B, Ctrl+I, Ctrl+U |
+| Strikethrough | S̶ | ⌘⇧S / Ctrl+Shift+S |
+| Normal text, Heading 1–3 | Style menu | — |
+| Bulleted or numbered list | List buttons | ⌘⇧8, ⌘⇧7 / Ctrl+Shift+8, Ctrl+Shift+7 |
+| Block quote, horizontal line, alignment, clear formatting | Toolbar | — |
+| Undo or redo | Arrows | ⌘Z, ⌘⇧Z / Ctrl+Z, Ctrl+Shift+Z |
+| Save now | — | ⌘S / Ctrl+S |
+
+- **Autosave.** Changes save 0.8 seconds after you stop typing, and whenever the title field loses
+  focus. Only one save is sent at a time; edits made while a save is in progress are queued for the next
+  one.
+- **Leaving the page.** Pending changes are saved before you leave the editor. If a save is still in
+  progress, the browser asks before closing the tab.
+- **Titles.** Titles are trimmed and capped at 200 characters. An empty title becomes
+  *Untitled document*.
+
+### File import
+
+| Format | Extensions | Converter | What is kept |
+| --- | --- | --- | --- |
+| Word | `.docx` | [mammoth](https://github.com/mwilliamson/mammoth.js) | Headings, bold, italic, underline, strikethrough, lists, links |
+| Markdown | `.md`, `.markdown` | [marked](https://marked.js.org) (GitHub-flavored) | Headings, emphasis, lists, block quotes, code, links |
+| Plain text | `.txt` | Built in | Paragraphs (separated by blank lines) and line breaks |
+
+- **Two ways to import.** **Import file** on the dashboard, or a file dropped onto the dashboard,
+  creates a new document. The dashboard shows the original filename next to it. **Insert file** in the
+  editor toolbar puts the content at the cursor.
+- **Limits.** One file per upload, up to **5 MB**. The supported types are listed next to every upload
+  control, and the server rejects anything else with a clear error message.
+- **Not supported.** Embedded images and table layout are dropped; table text is kept as plain text.
+  Legacy `.doc` files, PDFs, and other formats are rejected.
+
+### Sharing and permissions
+
+Every document has exactly one **owner**: the user who created or imported it. The owner can share it
+with other users by email.
+
+| Capability | Owner | Editor | Viewer |
+| --- | :---: | :---: | :---: |
+| Open and read | ✓ | ✓ | ✓ |
+| See who has access | ✓ | ✓ | ✓ |
+| Edit content and rename | ✓ | ✓ | — |
+| Insert content from a file | ✓ | ✓ | — |
+| Share, change roles, remove people | ✓ | — | — |
+| Remove their own access | — | ✓ | ✓ |
+| Delete the document | ✓ | — | — |
+
+- **Enforced on the server.** The API checks every permission. The interface only reflects what the API
+  allows.
+- **No information leaks.** Users without access get **404 Not Found** rather than 403, so they cannot
+  tell whether a document exists.
+- **Access changes reach open documents.** If your role changes while a document is open, the page
+  updates to match within a few seconds. If your access is removed, you see a "Document unavailable"
+  page.
 
 ### Persistence
-- SQLite file at `data/inkwell.db` (WAL mode). Documents, shares, users, and sessions survive refreshes
-  and server restarts.
-- Document content is stored as **sanitized HTML**, which is also what the editor produces. Formatting
-  round-trips exactly, and you can inspect the data with any SQLite client:
-  `sqlite3 data/inkwell.db 'select title, content from documents'`.
+
+- **Storage.** Data lives in a single SQLite file, `data/inkwell.db` by default, using write-ahead
+  logging (WAL).
+- **Content format.** Documents are stored as sanitized HTML, which is the editor's native format, so
+  formatting round-trips exactly. You can inspect the data with any SQLite client:
+
+  ```bash
+  sqlite3 data/inkwell.db "SELECT title, updated_at FROM documents;"
+  ```
 
 ## Architecture
 
+### Tech stack
+
+| Layer | Technology |
+| --- | --- |
+| Frontend | React 19, [TipTap 3](https://tiptap.dev) (built on ProseMirror), Vite, lucide-react icons |
+| Backend | Node.js, Express 5, multer (uploads), sanitize-html |
+| Database | SQLite via the built-in `node:sqlite` module |
+| Testing | `node:test`, supertest |
+
+### Project structure
+
 ```
-client/                 React app (Vite root)
-  src/api.js            fetch wrapper for the REST API
-  src/components/
-    Dashboard.jsx       owned / shared lists, new doc, import (button + drag-and-drop)
-    EditorPage.jsx      TipTap editor, autosave queue, conflict handling, live refresh
-    Toolbar.jsx         formatting controls, "Insert file"
-    ShareDialog.jsx     grant / change / revoke access
-    AccountMenu.jsx     switch demo user, sign out
-server/
-  index.js              entry point (env config, listen)
-  app.js                Express app: auth, documents, sharing, import routes
-  db.js                 schema, seed data
-  convert.js            .txt/.md/.docx → HTML, HTML sanitizer
-tests/api.test.js       24 API tests
-samples/                example .docx / .md / .txt files for trying the import
+├── client/                    React single-page app (Vite root)
+│   ├── index.html
+│   └── src/
+│       ├── App.jsx            Session check and routing
+│       ├── api.js             REST client
+│       ├── lib.js             Router, formatting helpers, shared constants
+│       ├── styles.css
+│       └── components/
+│           ├── Login.jsx          Demo account picker
+│           ├── Dashboard.jsx      Owned / shared lists, create, import, drag-and-drop
+│           ├── EditorPage.jsx     Editor, autosave queue, conflict handling, live refresh
+│           ├── Toolbar.jsx        Formatting controls, insert-from-file
+│           ├── ShareDialog.jsx    Grant, change, and revoke access
+│           ├── AccountMenu.jsx    Switch user, sign out
+│           └── ui.jsx             Avatar, badges, modal, toasts
+├── server/
+│   ├── index.js               Entry point and environment configuration
+│   ├── app.js                 Express app: auth, documents, sharing, import routes
+│   ├── db.js                  Schema and seed data
+│   ├── convert.js             File-to-HTML conversion and the HTML sanitizer
+│   └── reset.js               Deletes the local database
+├── tests/api.test.js          API test suite
+├── samples/                   Example .docx, .md, and .txt files
+└── docs/screenshots/          Images used in this README
 ```
 
 ### Data model
 
+```sql
+users            (id, email UNIQUE, name, color)
+sessions         (token PK, user_id → users, created_at)
+documents        (id UUID PK, owner_id → users, title, content, version,
+                  source_filename, created_at, updated_at, updated_by → users)
+document_shares  (document_id → documents, user_id → users,
+                  role CHECK IN ('viewer', 'editor'), created_at,
+                  PRIMARY KEY (document_id, user_id))
 ```
-users(id, email, name, color)
-sessions(token, user_id → users, created_at)
-documents(id uuid, owner_id → users, title, content html, version, source_filename,
-          created_at, updated_at, updated_by → users)
-document_shares(document_id → documents, user_id → users, role 'viewer'|'editor', created_at)
-                PRIMARY KEY (document_id, user_id)
-```
 
-Foreign keys cascade: deleting a document deletes its shares.
+Foreign keys cascade on delete, so deleting a document also removes its shares.
 
-### API
+### How saving works
 
-| Method & path | Who | Purpose |
-| --- | --- | --- |
-| `GET /api/users` | anyone | Demo accounts (sign-in screen, share suggestions) |
-| `POST /api/auth/login` `{email}` | anyone | Start a session (httpOnly cookie) |
-| `POST /api/auth/logout` · `GET /api/auth/me` | | |
-| `GET /api/documents` | signed in | `{ owned: [...], shared: [...] }` |
-| `POST /api/documents` `{title?, content?}` | signed in | Create a document |
-| `POST /api/documents/import` (multipart `file`) | signed in | Create a document from a file |
-| `GET /api/documents/:id` | owner, editor, viewer | Document with content and the caller's role |
-| `PATCH /api/documents/:id` `{title?, content?, version}` | owner, editor | Save; returns **409** with the latest copy if `version` is stale |
-| `DELETE /api/documents/:id` | owner | Delete |
-| `GET /api/documents/:id/shares` | owner, editor, viewer | Owner and collaborators |
-| `POST /api/documents/:id/shares` `{email, role}` | owner | Grant access or change a role (upsert) |
-| `DELETE /api/documents/:id/shares/:userId` | owner, or that user | Revoke access / leave |
-| `POST /api/convert` (multipart `file`) | signed in | File → HTML, for inserting into a draft |
+1. The editor sends `PATCH /api/documents/:id` with the new content and the `version` it was based on.
+2. The server applies the change only if that version is still current, using a single conditional
+   `UPDATE … WHERE version = ?`. On success it increments the version.
+3. If another user saved first, the server returns **409 Conflict** along with the latest copy. The
+   editor then shows a banner with two choices: **Load their version** or **Keep mine**.
+4. Open documents poll every 4 seconds. While you have no unsaved changes, newer versions are applied
+   without affecting your undo history.
 
-## Design decisions and trade-offs
+## API reference
 
-- **Mock auth.** Picking a seeded user creates a real server-side session: a random token in an httpOnly,
-  SameSite=Lax cookie. Every authorization check runs on the server against that session, so swapping in
-  real authentication (passwords, OAuth) would only change the login route.
-- **HTML as the storage format.** File imports produce HTML, the editor reads and writes HTML, and the
-  stored data is easy to read. The server sanitizes every write and import against an allow-list that
-  matches the editor's schema (no scripts, event handlers, or styles other than `text-align`). That makes
-  stored XSS impossible even if a client skips the editor. The cost is that structure is only as strict as
-  the allow-list. TipTap's JSON format would be stricter but harder to inspect.
-- **Optimistic concurrency, not real-time co-editing.** Each document has a `version`. A save sends the
-  version it was based on, and the server updates only if that version is still current. When two editors
-  collide, nobody's work is silently overwritten: the second editor sees a banner with **Load their
-  version** or **Keep mine**. Open tabs poll every 4 s and apply collaborators' saves while idle. True
-  simultaneous editing (Yjs/CRDT with WebSockets) was out of scope for this size of project.
-- **`node:sqlite` instead of `better-sqlite3`.** Nothing native to compile, so `npm install` works on any
-  machine with a recent Node.
-- **Single package, two processes in dev.** Vite handles the frontend with hot reload. Production builds
-  to `dist/`, which Express serves, so you deploy one process.
+All endpoints are under `/api` and use JSON, except file uploads, which use `multipart/form-data` with
+the file in a field named `file`. Every endpoint except `/users` and `/auth/*` requires a session
+cookie.
+
+| Method | Endpoint | Access | Description |
+| --- | --- | --- | --- |
+| `GET` | `/users` | Public | Lists demo accounts |
+| `POST` | `/auth/login` | Public | Starts a session. Body: `{ email }` |
+| `POST` | `/auth/logout` | Signed in | Ends the session |
+| `GET` | `/auth/me` | Public | Returns the current user, or `null` |
+| `GET` | `/documents` | Signed in | Returns `{ owned, shared }` document lists |
+| `POST` | `/documents` | Signed in | Creates a document. Body: `{ title?, content? }` |
+| `POST` | `/documents/import` | Signed in | Creates a document from an uploaded file |
+| `GET` | `/documents/:id` | Any role | Returns the document, including the caller's role |
+| `PATCH` | `/documents/:id` | Owner, editor | Saves changes. Body: `{ title?, content?, version }`. Returns `409` on a version conflict |
+| `DELETE` | `/documents/:id` | Owner | Deletes the document |
+| `GET` | `/documents/:id/shares` | Any role | Lists the owner and collaborators |
+| `POST` | `/documents/:id/shares` | Owner | Grants access or changes a role. Body: `{ email, role }` |
+| `DELETE` | `/documents/:id/shares/:userId` | Owner, or that user | Revokes access, or leaves the document |
+| `POST` | `/convert` | Signed in | Converts an uploaded file to HTML without saving it |
+
+Errors use the shape `{ "error": "message" }` with a matching HTTP status code.
 
 ## Testing
 
@@ -171,38 +274,55 @@ Foreign keys cascade: deleting a document deletes its shares.
 npm test
 ```
 
-The 24 API tests cover:
+The suite has 24 tests that run against a fresh in-memory database. It covers:
 
-- authentication
-- create, rename, edit, and reopen with formatting intact
-- sanitization (scripts, event handlers, `javascript:` URLs)
-- version conflicts (409)
-- every sharing rule: viewer is read-only, editor can edit but not manage access, revoke, leave, 404 for
-  outsiders, input validation, cascade on delete
-- `.docx`, `.md`, and `.txt` import using the files in `samples/`
-- unsupported, oversized, and corrupt uploads
-- data surviving a database reopen
+- **Authentication.** Session required, sign-in and sign-out, unknown accounts.
+- **Documents.** Create, rename, edit, and reopen with formatting preserved; input validation; delete.
+- **Security.** Scripts, event handlers, and `javascript:` URLs are removed from stored content.
+- **Concurrency.** A save based on an outdated version is rejected with `409`.
+- **Sharing.** Viewers are read-only. Editors can edit but cannot manage access. Revoking and leaving
+  work. Outsiders get `404`. Deleting a document removes it for collaborators.
+- **Import.** `.docx`, `.md`, and `.txt` conversion using the files in `samples/`; unsupported,
+  oversized, and corrupt files are rejected.
+- **Persistence.** Data survives closing and reopening the database file.
 
-The UI flows (editing, toolbar, autosave, sharing, switching users, the view-only mode, conflict
-resolution, drag-and-drop import, insert-from-file, and mobile layout) were checked by hand in the browser.
-There are no automated browser tests yet.
+The user-interface flows were verified manually in the browser: editing, autosave, sharing, switching
+users, view-only mode, conflict resolution, file import, and the mobile layout.
 
 ## Configuration
 
-| Env var | Default | Meaning |
+| Variable | Default | Description |
 | --- | --- | --- |
-| `API_PORT` | `3001` | API port in development (Vite proxies to it) |
-| `PORT` | `3001` | Port in production (`npm start`) |
-| `DB_PATH` | `data/inkwell.db` | SQLite file location |
-| `SEED_DEMO` | on | Set to `0` to skip seeding the two demo documents (users are always seeded) |
-| `COOKIE_SECURE` | off | Set to `1` behind HTTPS to mark the session cookie `Secure` |
+| `API_PORT` | `3001` | API port during development. Vite forwards `/api` requests to it |
+| `PORT` | `3001` | Server port in production (`npm start`) |
+| `DB_PATH` | `data/inkwell.db` | Location of the SQLite database file |
+| `SEED_DEMO` | `1` | Set to `0` to skip seeding the demo documents. Demo users are always created |
+| `COOKIE_SECURE` | `0` | Set to `1` when serving over HTTPS, so the session cookie is marked `Secure` |
 
-## Known limitations / next steps
+## Design decisions
 
-- No real-time co-editing or presence. Next step: Yjs plus a WebSocket provider (TipTap has bindings).
-- No version history. The `version` column is there; snapshotting each save into a `document_revisions`
-  table would add history and restore.
-- Sharing works only with existing accounts. There are no invite emails, link sharing, or groups.
-- Sessions never expire, and there is no CSRF token (SameSite=Lax covers the demo).
-- Imports skip images and tables.
-- No browser-level tests (Playwright) yet.
+- **Mock authentication, real sessions.** Picking an account creates a server-side session: a random
+  token stored in an `HttpOnly`, `SameSite=Lax` cookie. All authorization runs on the server against
+  that session, so adding real authentication would only change the login endpoint.
+- **HTML as the storage format.** File imports produce HTML, and the editor reads and writes it
+  natively, so the stored content is easy to inspect. Every write and import is sanitized against an
+  allow-list that matches the editor's schema. This prevents stored cross-site scripting even if a client
+  bypasses the editor.
+- **Optimistic concurrency instead of real-time co-editing.** Version checks keep concurrent saves from
+  overwriting each other, and they are simple and predictable. Real-time co-editing, for example with
+  Yjs or CRDTs over WebSockets, is a larger investment and the natural next step.
+- **Built-in `node:sqlite`.** It needs no native build step and no separate database server, so the
+  project installs on any machine with a recent version of Node.
+- **One deployable unit.** In development, Vite serves the client with hot reload. In production,
+  Express serves the built client and the API from a single process.
+
+## Limitations and roadmap
+
+| Limitation | Possible next step |
+| --- | --- |
+| Two people cannot type in the same document live | Real-time co-editing with Yjs and TipTap's collaboration extension |
+| No version history | Store a snapshot of each save in a `document_revisions` table, with restore |
+| Sharing works only with existing accounts | Invitation emails, shareable links, and groups |
+| Server-side sessions do not expire, and there is no CSRF token | Session expiry and rotation; CSRF protection once real auth is added |
+| Imports drop images and tables | Add image upload storage and the TipTap table extension |
+| No automated browser tests | End-to-end tests with Playwright |
