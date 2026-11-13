@@ -5,7 +5,8 @@ import { createApp } from './app.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const dbPath = process.env.DB_PATH ?? path.join(root, 'data', 'inkwell.db');
-const production = process.env.NODE_ENV === 'production';
+// `--production` keeps `npm start` portable (Windows shells don't support `VAR=value cmd`).
+const production = process.env.NODE_ENV === 'production' || process.argv.includes('--production');
 // In dev, Vite owns the browser-facing port and proxies /api to API_PORT. In production the
 // API serves everything, so honour the conventional PORT used by hosting platforms.
 const port = Number((production ? process.env.PORT : process.env.API_PORT) ?? 3001);

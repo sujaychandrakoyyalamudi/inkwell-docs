@@ -1,23 +1,235 @@
 # Inkwell
 
 A lightweight collaborative document editor. You can write and format documents in the browser, import
-existing files, and share documents with other users as editors or viewers. Everything is stored in
-SQLite.
+existing files, and share documents with other users as editors or viewers. Everything is stored in a
+local SQLite database.
 
 ![Inkwell editor](docs/screenshots/editor.png)
 
-## Table of contents
+## Contents
 
+- [Quick start](#quick-start)
+- [Local setup](#local-setup)
+- [Running the app](#running-the-app)
+- [Troubleshooting](#troubleshooting)
 - [Features](#features)
-- [Getting started](#getting-started)
 - [Walkthrough](#walkthrough)
 - [Feature details](#feature-details)
 - [Architecture](#architecture)
 - [API reference](#api-reference)
-- [Testing](#testing)
-- [Configuration](#configuration)
+- [Test coverage](#test-coverage)
 - [Design decisions](#design-decisions)
 - [Limitations and roadmap](#limitations-and-roadmap)
+
+---
+
+## Quick start
+
+If you already have Node.js 22.13 or later installed:
+
+```bash
+git clone https://github.com/sujaychandrakoyyalamudi/inkwell-docs.git
+cd inkwell-docs
+npm install
+npm run dev
+```
+
+Then open **http://localhost:5173** and choose a demo account. There is no password.
+
+The rest of this section explains each step in detail.
+
+---
+
+## Local setup
+
+### 1. Install the prerequisites
+
+| Tool | Required version | Check with |
+| --- | --- | --- |
+| [Node.js](https://nodejs.org) | **22.13 or later** (an LTS release is recommended) | `node --version` |
+| npm | Installed with Node.js | `npm --version` |
+| [Git](https://git-scm.com) | Any recent version | `git --version` |
+
+You don't need a separate database server or any other service. SQLite runs inside the Node.js process,
+through Node's built-in `node:sqlite` module.
+
+If Node.js is missing or older than 22.13, install the current LTS release in one of these ways:
+
+- **macOS or Linux, with [nvm](https://github.com/nvm-sh/nvm):**
+
+  ```bash
+  nvm install --lts
+  nvm use --lts
+  ```
+
+- **macOS, with Homebrew:** `brew install node`
+- **Windows, or any platform:** download the LTS installer from [nodejs.org](https://nodejs.org).
+
+### 2. Get the code
+
+```bash
+git clone https://github.com/sujaychandrakoyyalamudi/inkwell-docs.git
+cd inkwell-docs
+```
+
+The repository is private, so your GitHub account needs access to clone it. You can also download it
+from GitHub with **Code → Download ZIP**, unzip it, and open a terminal in the extracted folder.
+
+### 3. Install dependencies
+
+```bash
+npm install
+```
+
+This installs the project's packages into `node_modules/`. Nothing is compiled from source, so it usually
+finishes in under a minute.
+
+### 4. Start the app
+
+```bash
+npm run dev
+```
+
+This command starts two processes in one terminal:
+
+| Process | Address | Role |
+| --- | --- | --- |
+| `api` | http://localhost:3001 | Express server: the REST API, file conversion, and the database |
+| `web` | http://localhost:5173 | Vite dev server: serves the React app and forwards `/api` requests to the API |
+
+When both are ready, the output looks like this:
+
+```
+[api] Inkwell API listening on http://localhost:3001  (db: /path/to/inkwell-docs/data/inkwell.db)
+[web]   VITE v8.3.8  ready in 150 ms
+[web]   ➜  Local:   http://localhost:5173/
+```
+
+Open **http://localhost:5173** in your browser.
+
+The first start creates `data/inkwell.db` and fills it with demo accounts and documents. Later starts
+reuse the same file, so your documents are still there.
+
+### 5. Sign in
+
+Sign-in is mocked: click one of the demo accounts. To switch users later, open the avatar menu in the
+top-right corner.
+
+| Account | Email | Seeded content |
+| --- | --- | --- |
+| Alice Chen | `alice@example.com` | Owns *Welcome to Inkwell*, shared with Bob as an editor |
+| Bob Martinez | `bob@example.com` | Owns *Q3 planning notes*, shared with Alice as a viewer |
+| Carol Singh | `carol@example.com` | No documents. Use this account to test sharing |
+
+### 6. Stop the app
+
+Press **Ctrl+C** in the terminal. This stops both processes. Your data stays in `data/inkwell.db`.
+
+---
+
+## Running the app
+
+### Development mode
+
+```bash
+npm run dev
+```
+
+Changes to files in `client/` appear in the browser immediately. Changes to files in `server/` restart
+the API automatically.
+
+### Production mode
+
+```bash
+npm run build
+npm start
+```
+
+Open **http://localhost:3001**. In this mode a single Node.js process serves both the built app and the
+API. Run `npm run build` again after you change anything in `client/`.
+
+### Run the tests
+
+```bash
+npm test
+```
+
+The tests use a temporary in-memory database, so they never touch your data, and the app does not need to
+be running. A successful run ends with:
+
+```
+ℹ tests 24
+ℹ pass 24
+ℹ fail 0
+```
+
+### Reset the demo data
+
+Stop the app first, then run:
+
+```bash
+npm run seed:reset
+npm run dev
+```
+
+This deletes `data/inkwell.db`; the next start recreates the demo accounts and documents. Any earlier
+browser session is no longer valid, so sign in again.
+
+### Change the ports or the database location
+
+You can set these environment variables when starting the app:
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `API_PORT` | `3001` | API port in development mode. Vite forwards `/api` requests to it |
+| `PORT` | `3001` | Server port in production mode (`npm start`) |
+| `DB_PATH` | `data/inkwell.db` | Location of the SQLite database file |
+| `SEED_DEMO` | `1` | Set to `0` to skip creating the demo documents. Demo accounts are always created |
+| `COOKIE_SECURE` | `0` | Set to `1` when serving over HTTPS, so the session cookie is marked `Secure` |
+
+macOS or Linux:
+
+```bash
+API_PORT=4000 npm run dev
+```
+
+```bash
+PORT=8080 npm start
+```
+
+Windows (PowerShell):
+
+```powershell
+$env:API_PORT=4000; npm run dev
+```
+
+The browser-facing port in development (5173) is set by Vite. If that port is busy, Vite picks the next
+free one and prints the address it is using.
+
+### npm scripts
+
+| Command | Description |
+| --- | --- |
+| `npm run dev` | Starts the API and the Vite dev server with automatic reload |
+| `npm run build` | Builds the client into `dist/` |
+| `npm start` | Runs the production server, which serves `dist/` and the API |
+| `npm test` | Runs the API test suite |
+| `npm run seed:reset` | Deletes the local database so the next start re-seeds demo data |
+
+---
+
+## Troubleshooting
+
+| Symptom | Cause and fix |
+| --- | --- |
+| `No such built-in module: node:sqlite` | Node.js is older than 22.13. Upgrade it (see [Prerequisites](#1-install-the-prerequisites)), then run `npm install` again. |
+| `npm WARN EBADENGINE` during install | Same cause: Node.js is too old. |
+| `npm warn install-scripts … fsevents` during install (macOS) | Harmless. `fsevents` is an optional file-watching helper, and the app works without it. |
+| `Error: listen EADDRINUSE … :3001` | Another process is already using port 3001, possibly another copy of the app. Stop that process, or start with a different port: `API_PORT=4000 npm run dev`. |
+| The sign-in page shows "Network error — is the server running?" | The API isn't running. Make sure you started the app with `npm run dev`, not `npx vite`, and check the terminal for `[api]` errors. |
+| `npm start` shows `Cannot GET /` | The client hasn't been built yet. Run `npm run build` first. |
+| You are signed out after resetting the data | Expected: the reset deleted all sessions. Sign in again. |
+| `ExperimentalWarning: SQLite is an experimental feature` | Some Node.js 22 releases print this. It is harmless. |
 
 ---
 
@@ -35,48 +247,6 @@ SQLite.
   silently overwriting the first. Collaborators' changes appear in open documents automatically.
 - **Persistence.** Documents, formatting, and sharing are stored in SQLite and survive refreshes and
   server restarts.
-
-## Getting started
-
-### Prerequisites
-
-- **Node.js 22.13 or later.** Inkwell uses Node's built-in `node:sqlite` module, so there are no native
-  dependencies to compile.
-- npm
-
-### Install and run
-
-```bash
-git clone https://github.com/sujaychandrakoyyalamudi/inkwell-docs.git
-cd inkwell-docs
-npm install
-npm run dev
-```
-
-Open **http://localhost:5173**.
-
-On first start, the server creates `data/inkwell.db` and seeds it with demo accounts and documents.
-
-### Demo accounts
-
-Sign-in is mocked: choose an account on the sign-in screen, with no password. To switch users, open the
-avatar menu in the top-right corner.
-
-| Account | Email | Seeded content |
-| --- | --- | --- |
-| Alice Chen | `alice@example.com` | Owns *Welcome to Inkwell*, shared with Bob as an editor |
-| Bob Martinez | `bob@example.com` | Owns *Q3 planning notes*, shared with Alice as a viewer |
-| Carol Singh | `carol@example.com` | No documents. Use this account to test sharing |
-
-### Scripts
-
-| Command | Description |
-| --- | --- |
-| `npm run dev` | Starts the API on port 3001 and the Vite dev server on port 5173, both reloading on changes |
-| `npm test` | Runs the API test suite against an in-memory database |
-| `npm run build` | Builds the client into `dist/` |
-| `npm start` | Runs the production server, which serves both the app and the API on `PORT` (default 3001) |
-| `npm run seed:reset` | Deletes the local database so the next start re-seeds demo data. Stop the server first |
 
 ## Walkthrough
 
@@ -268,13 +438,9 @@ cookie.
 
 Errors use the shape `{ "error": "message" }` with a matching HTTP status code.
 
-## Testing
+## Test coverage
 
-```bash
-npm test
-```
-
-The suite has 24 tests that run against a fresh in-memory database. It covers:
+The 24 API tests (see [Run the tests](#run-the-tests)) cover:
 
 - **Authentication.** Session required, sign-in and sign-out, unknown accounts.
 - **Documents.** Create, rename, edit, and reopen with formatting preserved; input validation; delete.
@@ -288,16 +454,6 @@ The suite has 24 tests that run against a fresh in-memory database. It covers:
 
 The user-interface flows were verified manually in the browser: editing, autosave, sharing, switching
 users, view-only mode, conflict resolution, file import, and the mobile layout.
-
-## Configuration
-
-| Variable | Default | Description |
-| --- | --- | --- |
-| `API_PORT` | `3001` | API port during development. Vite forwards `/api` requests to it |
-| `PORT` | `3001` | Server port in production (`npm start`) |
-| `DB_PATH` | `data/inkwell.db` | Location of the SQLite database file |
-| `SEED_DEMO` | `1` | Set to `0` to skip seeding the demo documents. Demo users are always created |
-| `COOKIE_SECURE` | `0` | Set to `1` when serving over HTTPS, so the session cookie is marked `Secure` |
 
 ## Design decisions
 

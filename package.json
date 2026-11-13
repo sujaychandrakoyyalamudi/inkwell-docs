@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "concurrently -k -n api,web -c blue,green \"node --watch-path=server server/index.js\" \"vite\"",
     "build": "vite build",
-    "start": "NODE_ENV=production node server/index.js",
+    "start": "node server/index.js --production",
     "test": "node --test",
     "seed:reset": "node server/reset.js"
   },
