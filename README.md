@@ -6,12 +6,20 @@ local SQLite database.
 
 ![Inkwell editor](docs/screenshots/editor.png)
 
+> **Live demo:** https://sujaychandrakoyyalamudi.github.io/inkwell-docs/
+>
+> The hosted demo is the browser-only edition. It runs entirely in your browser, and your documents are
+> saved on your device. To see sharing, sign in as one user, share a document, then switch accounts from
+> the avatar menu. To run the full server-backed version, follow [Quick start](#quick-start). For how the
+> two editions differ, see [Deployment](#deployment).
+
 ## Contents
 
 - [Quick start](#quick-start)
 - [Local setup](#local-setup)
 - [Running the app](#running-the-app)
 - [Troubleshooting](#troubleshooting)
+- [Deployment](#deployment)
 - [Features](#features)
 - [Walkthrough](#walkthrough)
 - [Feature details](#feature-details)
@@ -156,12 +164,13 @@ API. Run `npm run build` again after you change anything in `client/`.
 npm test
 ```
 
-The tests use a temporary in-memory database, so they never touch your data, and the app does not need to
-be running. A successful run ends with:
+This runs two suites: 24 tests for the server API and 7 for the browser-only backend. They use temporary
+in-memory databases, so they never touch your data, and the app does not need to be running. A
+successful run ends with:
 
 ```
-ℹ tests 24
-ℹ pass 24
+ℹ tests 31
+ℹ pass 31
 ℹ fail 0
 ```
 
@@ -215,8 +224,11 @@ free one and prints the address it is using.
 | `npm run dev` | Starts the API and the Vite dev server with automatic reload |
 | `npm run build` | Builds the client into `dist/` |
 | `npm start` | Runs the production server, which serves `dist/` and the API |
-| `npm test` | Runs the API test suite |
+| `npm test` | Runs both test suites (server API and browser-only backend) |
 | `npm run seed:reset` | Deletes the local database so the next start re-seeds demo data |
+| `npm run dev:static` | Runs the browser-only edition with hot reload (no API server needed) |
+| `npm run build:static` | Builds the browser-only edition into `dist/`, as deployed to GitHub Pages |
+| `npm run preview:static` | Builds the browser-only edition and serves it at http://localhost:4173 |
 
 ---
 
@@ -232,6 +244,36 @@ free one and prints the address it is using.
 | `npm start` shows `Cannot GET /` | The client hasn't been built yet. Run `npm run build` first. |
 | You are signed out after resetting the data | Expected: the reset deleted all sessions. Sign in again. |
 | `ExperimentalWarning: SQLite is an experimental feature` | Some Node.js 22 releases print this. It is harmless. |
+
+---
+
+## Deployment
+
+**Live demo:** https://sujaychandrakoyyalamudi.github.io/inkwell-docs/
+
+GitHub Pages hosts static files only, so the live demo is a **browser-only edition** of the same app. It
+uses the same React interface and the same business rules (`shared/core.js`). In place of the Node
+server, the API runs inside the browser on SQLite compiled to WebAssembly.
+
+| | Server-backed (local) | Browser-only (live demo) |
+| --- | --- | --- |
+| Start it | `npm run dev` or `npm start` | Open the live URL, or `npm run preview:static` |
+| Data lives in | `data/inkwell.db` on the server | This browser's `localStorage` |
+| Sharing works between | Anyone using the same server | Accounts signed in **in the same browser** |
+| Reset | `npm run seed:reset` | Avatar menu → **Reset demo data** |
+
+Everything else behaves the same in both editions: editing, autosave, importing `.docx`, `.md`, and `.txt`
+files, sharing roles and permissions, conflict detection (between two tabs, in the browser edition), and
+sanitization.
+
+**How it is deployed.** [`.github/workflows/pages.yml`](.github/workflows/pages.yml) runs on every push
+to `main`. It installs dependencies, runs all tests, builds the static edition
+(`npm run build:static`), and publishes it to GitHub Pages. A failing test stops the deploy. Progress is
+visible on the repository's **Actions** tab.
+
+**Hosting the server-backed edition.** For a shared demo that works across devices, [`render.yaml`](render.yaml)
+deploys the Node server to [Render](https://render.com) from this repository. It is not deployed at the
+moment.
 
 ---
 
@@ -363,7 +405,9 @@ with other users by email.
 | Frontend | React 19, [TipTap 3](https://tiptap.dev) (built on ProseMirror), Vite, lucide-react icons |
 | Backend | Node.js, Express 5, multer (uploads), sanitize-html |
 | Database | SQLite via the built-in `node:sqlite` module |
+| Browser-only edition | sql.js (SQLite in WebAssembly), DOMPurify, mammoth's browser build |
 | Testing | `node:test`, supertest |
+| Hosting | GitHub Pages, deployed by GitHub Actions |
 
 ### Project structure
 
@@ -372,9 +416,10 @@ with other users by email.
 │   ├── index.html
 │   └── src/
 │       ├── App.jsx            Session check and routing
-│       ├── api.js             REST client
+│       ├── api.js             REST client (routes to the in-browser backend in the static build)
 │       ├── lib.js             Router, formatting helpers, shared constants
 │       ├── styles.css
+│       ├── static/            In-browser backend for the GitHub Pages build (sql.js, DOMPurify)
 │       └── components/
 │           ├── Login.jsx          Demo account picker
 │           ├── Dashboard.jsx      Owned / shared lists, create, import, drag-and-drop
@@ -383,13 +428,22 @@ with other users by email.
 │           ├── ShareDialog.jsx    Grant, change, and revoke access
 │           ├── AccountMenu.jsx    Switch user, sign out
 │           └── ui.jsx             Avatar, badges, modal, toasts
+├── shared/                    Code used by both the server and the browser-only edition
+│   ├── core.js                Sessions, documents, sharing, authorization, version checks
+│   ├── schema.js              SQLite schema and demo seed data
+│   ├── content.js             File conversion, allow-list, limits, title rules
+│   └── errors.js              HttpError
 ├── server/
 │   ├── index.js               Entry point and environment configuration
-│   ├── app.js                 Express app: auth, documents, sharing, import routes
-│   ├── db.js                  Schema and seed data
-│   ├── convert.js             File-to-HTML conversion and the HTML sanitizer
+│   ├── app.js                 Express routes on top of shared/core.js
+│   ├── db.js                  Opens the SQLite file (node:sqlite)
+│   ├── convert.js             Server sanitizer (sanitize-html) and .docx conversion
 │   └── reset.js               Deletes the local database
-├── tests/api.test.js          API test suite
+├── tests/
+│   ├── api.test.js            Server API tests
+│   └── static-backend.test.js Browser-only backend tests
+├── .github/workflows/pages.yml  Test, build, and deploy to GitHub Pages
+├── render.yaml                Optional Render deployment of the server-backed edition
 ├── ARCHITECTURE.md            Architecture note
 ├── AI_WORKFLOW.md             AI workflow note
 ├── SUBMISSION.md              Submission summary and file manifest
@@ -448,7 +502,10 @@ Errors use the shape `{ "error": "message" }` with a matching HTTP status code.
 
 ## Test coverage
 
-The 24 API tests (see [Run the tests](#run-the-tests)) cover:
+There are 31 tests (see [Run the tests](#run-the-tests)): 24 for the server API and 7 for the
+browser-only backend. The browser suite runs the same core on sql.js and covers sharing rules, conflicts,
+imports, persistence across reloads, syncing between tabs, and resetting the demo. The server API tests
+cover:
 
 - **Authentication.** Session required, sign-in and sign-out, unknown accounts.
 - **Documents.** Create, rename, edit, and reopen with formatting preserved; input validation; delete.
@@ -490,3 +547,4 @@ users, view-only mode, conflict resolution, file import, and the mobile layout.
 | Server-side sessions do not expire, and there is no CSRF token | Session expiry and rotation; CSRF protection once real auth is added |
 | Imports drop images and tables | Add image upload storage and the TipTap table extension |
 | No automated browser tests | End-to-end tests with Playwright |
+| The live demo keeps data in each visitor's browser | Deploy the server-backed edition (`render.yaml` is ready) for a shared, multi-device demo |

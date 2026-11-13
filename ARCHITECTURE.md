@@ -32,12 +32,14 @@ flowchart LR
 | Layer | Responsibility | Main files |
 | --- | --- | --- |
 | Client | Routing, dashboard, editor, autosave, sharing UI | `client/src/components/*` |
-| API | Authentication, authorization, validation, persistence | `server/app.js` |
-| Conversion | `.docx`, `.md`, and `.txt` files to HTML, plus sanitization | `server/convert.js` |
-| Storage | Schema, foreign keys, seed data | `server/db.js` |
+| Core | Sessions, authorization, documents, sharing, version checks. Framework-free and synchronous | `shared/core.js` |
+| HTTP API | Maps the core onto HTTP: cookies, uploads, static files, error responses | `server/app.js` |
+| Conversion | `.docx`, `.md`, and `.txt` files to HTML, plus sanitization | `shared/content.js`, `server/convert.js` |
+| Storage | Schema, foreign keys, seed data | `shared/schema.js`, `server/db.js` |
 
 In development, Vite serves the client and forwards `/api` requests to Express. In production, Express
-serves the built client and the API from the same process and port.
+serves the built client and the API from the same process and port. The same core also runs inside the
+browser for the hosted GitHub Pages demo (see [section 7](#7-deployment-two-editions)).
 
 ## 2. Data model
 
@@ -59,8 +61,8 @@ users ──< sessions
 
 ### Authorization
 
-Every document route resolves the caller's role in one place, the `loadDoc(req, minRole)` function in
-`server/app.js`:
+Every document operation resolves the caller's role in one place, the `loadDoc(user, id, minRole)`
+function in `shared/core.js`:
 
 1. The owner of the document gets the role `owner`.
 2. Otherwise, a matching row in `document_shares` gives `editor` or `viewer`.
@@ -144,3 +146,30 @@ The original file is never written to disk; only the resulting HTML and the file
    a `document_revisions` table for history and restore.
 4. **Operations.** Add rate limiting on login and upload, structured logs, metrics, and end-to-end tests
    with Playwright.
+
+## 7. Deployment: two editions
+
+GitHub Pages serves static files only, so the hosted demo can't run the Node server. Instead, the same
+client is built a second way, with the API running inside the browser.
+
+| | Server-backed edition | Browser-only edition (live demo) |
+| --- | --- | --- |
+| Where it runs | Node.js process (`npm run dev` / `npm start`) | GitHub Pages: https://sujaychandrakoyyalamudi.github.io/inkwell-docs/ |
+| Rules | `shared/core.js` behind Express | The same `shared/core.js`, called directly by `client/src/static/backend.js` |
+| SQLite | `node:sqlite`, file on disk | sql.js (SQLite compiled to WebAssembly), snapshotted to `localStorage` |
+| Sanitizer | sanitize-html | DOMPurify, configured from the same allow-list |
+| `.docx` import | mammoth (Node build) | mammoth (browser build, loaded only when needed) |
+| Who shares data | Everyone using the server | Everyone signed in **in the same browser**; there is no server, so data stays on that device |
+
+- **How the browser edition plugs in.** `client/src/api.js` sends each request to the in-browser backend
+  instead of `fetch` when the app is built with `vite build --mode static`. The backend answers with the
+  same JSON and status codes as the server. Vite removes this code path from the server-backed build, so
+  that build does not ship sql.js, mammoth, or DOMPurify.
+- **Persistence and tabs.** Each write snapshots the database to `localStorage` synchronously, so a save
+  completes even if the tab is closing. A revision counter lets other open tabs reload before their next
+  request, so version conflicts are still detected across tabs.
+- **Release pipeline.** `.github/workflows/pages.yml` runs on every push to `main`. It installs
+  dependencies, runs all tests, builds the static edition, and publishes it to Pages. If a test fails,
+  nothing is deployed.
+- **Server-backed hosting.** `render.yaml` describes the server-backed edition for Render, ready to use
+  if a shared, multi-device demo is needed.

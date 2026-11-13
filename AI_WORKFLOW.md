@@ -2,7 +2,7 @@
 
 This note describes how I used an AI coding agent to build Inkwell: what I delegated, how the work was
 checked, and which decisions stayed with me. The whole project, from an empty folder to a documented
-GitHub repository, took about an hour.
+GitHub repository with a live demo, took about an hour and a half.
 
 ## 1. Setup
 
@@ -20,9 +20,10 @@ creating the GitHub repository, every commit, and every push.
 | **Plan** | The agent checked the environment first. Node 26 has SQLite built in, so it chose a stack with no native modules, and it broke the work into a visible task list. |
 | **Backend** | It wrote the schema, the API, and the file converters, then tested the endpoints with `curl` before building any UI. |
 | **Frontend** | It built the React and TipTap client: dashboard, editor, toolbar, share dialog, and account switching. |
-| **Automated tests** | It wrote 24 API tests covering authentication, permissions, sanitization, conflicts, imports, and persistence, and ran them after every change. |
+| **Automated tests** | It wrote 24 API tests covering authentication, permissions, sanitization, conflicts, imports, and persistence, and ran them after every change. Seven more were added later for the browser-only backend. |
 | **Browser testing** | It used the real app in a browser: typing and formatting, renaming, reloading to check persistence, sharing, switching users, view-only mode, live refresh, a deliberately forced edit conflict, importing a real `.docx` file, inserting a Markdown file, rejecting an unsupported file, and the mobile layout. |
 | **Documentation** | Over several short follow-up requests: the README with screenshots, step-by-step setup instructions, the [architecture note](ARCHITECTURE.md), and this note. |
+| **Deployment** | The agent first prepared a Render deployment of the Node server, which needed a Render account. When I asked for GitHub Pages instead, it explained that Pages can't run a server and proposed a browser-only edition. It moved the business rules into a shared core so the server and the browser run the same code, ran SQLite in the browser through WebAssembly, added a GitHub Actions pipeline, and tested the live URL end to end. |
 
 My follow-up prompts were short and outcome-focused, for example "a clear and professional README" or
 "README with local setup and run instructions". The agent turned each into a plan, did the work, and
@@ -42,6 +43,8 @@ up when the app was actually run:
 | Filenames with non-ASCII characters would have been garbled on upload | Reading the upload library's source during implementation: it decodes filenames as Latin-1 by default | Configured the library to read filenames as UTF-8 |
 | Underlines would have been dropped from imported Word files | The `.docx` converter ignores underline unless told otherwise | Mapped underline explicitly; an import test checks it |
 | One test failed | The sanitizer writes `text-align: center` as `text-align:center` | The behavior is harmless, so the test was updated, not the code |
+| The server-backed build would have shipped about 1 MB of unused browser-database code | Comparing the output files of the two builds | The browser backend is loaded only behind a build-time flag, so the server build drops it |
+| The deploy workflow would have used outdated GitHub Actions versions | Checking each action's latest release instead of relying on memory, which was several major versions behind | Pinned the current major versions |
 
 ## 4. Guardrails I relied on
 
@@ -66,6 +69,7 @@ These decisions were mine, not the agent's:
 
 - the scope and the requirements;
 - making the GitHub repository private;
+- hosting the live demo on GitHub Pages;
 - how the AI tooling is described in the project;
 - which documentation to produce and when to publish each piece.
 
