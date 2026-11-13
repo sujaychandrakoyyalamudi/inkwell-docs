@@ -76,7 +76,7 @@ All four required areas are implemented.
 
 ## 3. File manifest
 
-The repository contains exactly these 34 files.
+The repository contains exactly these 35 files.
 
 ### Documentation (8)
 
@@ -128,13 +128,14 @@ The repository contains exactly these 34 files.
 | `samples/meeting-notes.md` | Markdown file with headings, lists, a quote, and inline code |
 | `samples/plain-text.txt` | Plain-text file with paragraphs and line breaks |
 
-### Configuration (4)
+### Configuration (5)
 
 | File | Purpose |
 | --- | --- |
 | `package.json` | Dependencies and npm scripts (`dev`, `build`, `start`, `test`, `seed:reset`) |
 | `package-lock.json` | Exact dependency versions, for reproducible installs |
 | `vite.config.js` | Dev server, API proxy, build output |
+| `render.yaml` | Render Blueprint for the hosted deployment: build and start commands, health check, Node version |
 | `.gitignore` | Excludes generated files (see below) |
 
 ## 4. Not included, by design

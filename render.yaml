@@ -1,0 +1,19 @@
+# Render Blueprint: deploys Inkwell as a single Node.js web service.
+# Render runs the build, then `npm start`, which serves the built client and the API on $PORT.
+services:
+  - type: web
+    name: inkwell-docs
+    runtime: node
+    plan: free
+    branch: main
+    autoDeploy: true
+    # The client build tools (Vite, TipTap) are devDependencies, so install them for the build step.
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      # Render serves the app over HTTPS, so mark the session cookie Secure.
+      - key: COOKIE_SECURE
+        value: "1"
