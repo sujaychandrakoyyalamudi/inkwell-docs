@@ -12,7 +12,49 @@ export function setUnauthorizedHandler(fn) {
   onUnauthorized = fn;
 }
 
+// ---------- static (GitHub Pages) build: the API runs inside the browser ----------
+
+/** True in the browser-only build (`vite build --mode static`). */
+export const IS_STATIC_DEMO = import.meta.env.MODE === 'static';
+
+let localBackend = null;
+let localBackendPromise = null;
+
+function getLocalBackend() {
+  // Build-time constant: keeps sql.js, mammoth and DOMPurify out of the server-backed build.
+  if (import.meta.env.MODE !== 'static') {
+    return Promise.reject(new Error('The in-browser backend is only part of the static build.'));
+  }
+  localBackendPromise ??= import('./static/index.js')
+    .then((m) => m.startLocalBackend())
+    .then((backend) => (localBackend = backend));
+  return localBackendPromise;
+}
+
+async function localRequest(method, url, body) {
+  const backend = await getLocalBackend();
+  try {
+    return await backend.handle(method, url, body);
+  } catch (err) {
+    const status = err.status ?? 500;
+    if (status >= 500 && status !== 507) console.error(err);
+    const message = status >= 500 && status !== 507 ? 'Something went wrong in the demo.' : err.message;
+    if (status === 401) onUnauthorized();
+    throw new ApiError(status, message, { error: message, ...(err.extra ?? {}) });
+  }
+}
+
+/** Static build only: wipe this browser's demo data and start over. */
+export async function resetDemoData() {
+  (await getLocalBackend()).reset();
+}
+
+// ---------- requests ----------
+
 async function request(method, url, body) {
+  // Vite replaces import.meta.env.MODE at build time, so the normal build drops this branch.
+  if (import.meta.env.MODE === 'static') return localRequest(method, url, body);
+
   const init = { method, credentials: 'same-origin', headers: {} };
   if (body instanceof FormData) {
     init.body = body;
@@ -63,6 +105,11 @@ export const api = {
 
 /** Fire-and-forget save that survives page unload. */
 export function saveOnUnload(id, patch) {
+  if (import.meta.env.MODE === 'static') {
+    // The local backend writes synchronously, so the save lands before the page unloads.
+    localBackend?.handle('PATCH', `/documents/${id}`, patch).catch(() => {});
+    return;
+  }
   try {
     fetch(`/api/documents/${id}`, {
       method: 'PATCH',

@@ -9,7 +9,10 @@
   },
   "scripts": {
     "dev": "concurrently -k -n api,web -c blue,green \"node --watch-path=server server/index.js\" \"vite\"",
+    "dev:static": "vite --mode static",
     "build": "vite build",
+    "build:static": "vite build --mode static",
+    "preview:static": "vite build --mode static && vite preview --mode static --port 4173",
     "start": "node server/index.js --production",
     "test": "node --test",
     "seed:reset": "node server/reset.js"
@@ -30,9 +33,11 @@
     "@tiptap/starter-kit": "^3.34.0",
     "@vitejs/plugin-react": "^6.3.0",
     "concurrently": "^10.0.7",
+    "dompurify": "^3.4.17",
     "lucide-react": "^1.72.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
+    "sql.js": "^1.16.0",
     "supertest": "^7.3.2",
     "vite": "^8.3.8"
   }

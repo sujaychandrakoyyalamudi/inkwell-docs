@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { LogOut, Repeat } from 'lucide-react';
-import { api } from '../api.js';
+import { LogOut, Repeat, RotateCcw } from 'lucide-react';
+import { api, IS_STATIC_DEMO, resetDemoData } from '../api.js';
 import { Avatar, useToast } from './ui.jsx';
 
 /**
@@ -32,6 +32,14 @@ export function AccountMenu({ user, onUserChange, beforeSwitch }) {
     } catch (e) {
       toast(e.message, 'error');
     }
+  }
+
+  async function resetDemo() {
+    setOpen(false);
+    if (!window.confirm('Reset the demo? This deletes every document and share saved in this browser.')) return;
+    await resetDemoData();
+    window.location.hash = '/';
+    window.location.reload();
   }
 
   async function signOut() {
@@ -72,6 +80,12 @@ export function AccountMenu({ user, onUserChange, beforeSwitch }) {
               </button>
             ))}
           <div className="menu-divider" />
+          {IS_STATIC_DEMO && (
+            <button className="menu-item" role="menuitem" onClick={resetDemo}>
+              <RotateCcw size={16} />
+              <span>Reset demo data</span>
+            </button>
+          )}
           <button className="menu-item" role="menuitem" onClick={signOut}>
             <LogOut size={16} />
             <span>Sign out</span>

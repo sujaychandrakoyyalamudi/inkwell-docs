@@ -89,6 +89,7 @@ a { color: var(--accent); }
 
 .alert { padding: 10px 12px; border-radius: 8px; margin: 12px 0; }
 .alert-error { background: var(--danger-soft); color: var(--danger); }
+.alert-info { background: var(--accent-soft); color: #1e3a8a; line-height: 1.5; font-size: 13px; }
 
 /* ---------- avatar / badges / chips ---------- */
 

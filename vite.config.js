@@ -1,8 +1,12 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-export default defineConfig({
+// `--mode static` builds the browser-only edition for GitHub Pages: the API runs
+// in the browser (client/src/static), and asset URLs are relative so the site
+// works from any sub-path such as https://<user>.github.io/<repo>/.
+export default defineConfig(({ mode }) => ({
   root: 'client',
+  base: mode === 'static' ? './' : '/',
   plugins: [react()],
   build: {
     outDir: '../dist',
@@ -16,4 +20,4 @@ export default defineConfig({
       '/api': `http://localhost:${process.env.API_PORT ?? 3001}`,
     },
   },
-});
+}));

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ArrowRight } from 'lucide-react';
-import { api } from '../api.js';
+import { api, IS_STATIC_DEMO } from '../api.js';
 import { Avatar, Logo } from './ui.jsx';
 
 export function Login({ onLogin }) {
@@ -33,6 +33,13 @@ export function Login({ onLogin }) {
           Pick a demo account. This build uses mock authentication, so there is no password —
           switch accounts any time from the avatar menu to try sharing.
         </p>
+        {IS_STATIC_DEMO && (
+          <div className="alert alert-info">
+            <strong>Browser-only demo.</strong> This hosted version runs entirely in your browser:
+            documents and sharing are saved here, on this device. Sign in as one user, share a
+            document, then switch accounts to see the other side.
+          </div>
+        )}
         {error && <div className="alert alert-error">{error}</div>}
         <div className="login-users">
           {users === null && !error && <div className="muted">Loading accounts…</div>}
